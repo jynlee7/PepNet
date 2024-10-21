@@ -1,47 +1,47 @@
+import os
+import glob
 from pyteomics import mgf
 import pandas as pd
-import os
 
-# Path to the MGF file
-mgf_path = "/Users/leej741/Desktop/validation_set/mgf_individual_files/01_ECTABPP_NP_1_9Jan17_Wally_17-12-02.mzML_0.001_qvaluecutoff.mgf"
+def process_mgf_files(input_directory, output_directory):
+    # Ensure output directory exists
+    os.makedirs(output_directory, exist_ok=True)
 
-# Read the MGF file
-with mgf.MGF(mgf_path) as reader:
-    spectra = list(reader)
-print(f"Successfully read {len(spectra)} spectra from the input file.")
+    # Get all MGF files in the input directory
+    mgf_files = glob.glob(os.path.join(input_directory, "*.mgf"))
+    
+    for mgf_path in mgf_files:
+        # Get the base filename
+        base_filename = os.path.basename(mgf_path)
+        output_path = os.path.join(output_directory, f"pepnet_{base_filename}")
 
-# Extract precursor information and create DataFrame
-precursors = [spectrum['params'] for spectrum in spectra]
-df = pd.DataFrame.from_records(precursors)
+        # Read the MGF file
+        with mgf.MGF(mgf_path) as reader:
+            spectra = list(reader)
+        print(f"Processing {base_filename}: Read {len(spectra)} spectra.")
 
-# Set 'title' column equal to 'seq' column
-df['title'] = df['seq']
+        # Extract precursor information and create DataFrame
+        precursors = [spectrum['params'] for spectrum in spectra]
+        df = pd.DataFrame.from_records(precursors)
 
-# Display the first few rows to verify the change
-print(df[['title', 'seq']].head())
+        # Set 'title' column equal to 'seq' column
+        df['title'] = df['seq']
 
-# Update the spectra with new titles
-for spectrum, (index, row) in zip(spectra, df.iterrows()):
-    spectrum['params']['title'] = row['seq']
+        # Update the spectra with new titles
+        for spectrum, (index, row) in zip(spectra, df.iterrows()):
+            spectrum['params']['title'] = row['seq']
 
-# Write the updated spectra back to an MGF file
-output_path = "/Users/leej741/Desktop/validation_set/mgf_individual_files/pepnet/pepnet_01_ECTABPP_NP_1_9Jan17_Wally_17-12-02.mzML_0.001_qvaluecutoff.mgf"
+        # Write the updated spectra back to an MGF file
+        mgf.write(spectra, output_path)
+        print(f"Updated MGF file has been saved to: {output_path}")
 
-# Ensure output directory exists
-os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        # Print file sizes for comparison
+        print(f"Input file size: {os.path.getsize(mgf_path)} bytes")
+        print(f"Output file size: {os.path.getsize(output_path)} bytes")
+        print("---")
 
-# Write the updated MGF file
-mgf.write(spectra, output_path)
-print(f"Updated MGF file has been saved to: {output_path}")
+# Usage example
+input_dir = "/Users/leej741/Desktop/validation_set/mgf_individual_files"
+output_dir = "/Users/leej741/Desktop/validation_set/mgf_individual_files/pepnet"
 
-# Verify the content of the new file
-with mgf.MGF(output_path) as reader:
-    new_spectra = list(reader)
-
-print(f"Number of spectra in the new file: {len(new_spectra)}")
-if new_spectra:
-    print("First spectrum title:", new_spectra[0]['params']['title'])
-
-# Print file sizes for comparison
-print(f"Input file size: {os.path.getsize(mgf_path)} bytes")
-print(f"Output file size: {os.path.getsize(output_path)} bytes")
+process_mgf_files(input_dir, output_dir)
